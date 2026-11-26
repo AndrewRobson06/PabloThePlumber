@@ -60,4 +60,15 @@ public class PabloRespawn : MonoBehaviour
 
         isRespawning = false;
     }
+    
+    public void SetCheckpoint(Transform newSpawnPoint)
+    {
+        if (newSpawnPoint == null)
+        {
+            return;
+        }
+
+        currentSpawnPoint = newSpawnPoint;
+    }
+
 }

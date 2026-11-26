@@ -1,81 +1,132 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+[RequireComponent(typeof(CharacterController))]
 public class PabloMovement : MonoBehaviour
 {
-    private float verticalSpeed;
-    float moveSpeed = 8f;
+    [Header("Movement & Jump")]
+    [SerializeField] private float moveSpeed = 8f;
+    [SerializeField] private float jumpSpeed = 8f;
+    [SerializeField] private float risingGravity = 16f;
+    [SerializeField] private float fallingGravity = 30f;
+
+    [Header("Wall Jump")]
+    [SerializeField] private LayerMask wallLayer;
+    [SerializeField] private float wallSlideSpeed = -2.5f;
+    [SerializeField] private float wallJumpUpForce = 8f;
+    [SerializeField] private float wallJumpAwayForce = 10f;
+    [SerializeField] private float wallInputLockTime = 0.2f;
 
     private CharacterController controller;
+    private Vector3 velocity;
+    private Vector3 wallNormal;
+    private Collider lastWallCollider;
+    private Collider currentWallCollider;
+    private bool isTouchingWall;
+    private float inputLockTimer;
+
     void Start()
     {
         controller = GetComponent<CharacterController>();
     }
 
-    // Update is called once per frame
     void Update()
     {
         Keyboard keyboard = Keyboard.current;
-        MovePlayer(keyboard);
-        JumpGravity(keyboard);
-    }
+        bool jumpPressed = keyboard != null && keyboard.spaceKey.wasPressedThisFrame;
 
-    void MovePlayer(Keyboard keyboard)
-    {
-        float cameraY = Camera.main.transform.eulerAngles.y;    // Camera y Angle reference
-        Quaternion cameraTurn = Quaternion.Euler(0f, cameraY, 0f); // Create a variable to add the camera offset
-
-        Vector3 direction = Vector3.zero;
-
-        // Moves player relative to cameras direction
-
-        // Forward
-        if (keyboard != null && keyboard.wKey.isPressed) direction += cameraTurn * Vector3.forward;
-
-        // Back
-        if (keyboard != null && keyboard.sKey.isPressed) direction += cameraTurn * Vector3.back;
-
-        // Left
-        if (keyboard != null && keyboard.aKey.isPressed) direction += cameraTurn * Vector3.left;
-
-        // Right
-        if (keyboard != null && keyboard.dKey.isPressed) direction += cameraTurn * Vector3.right;
-
-        // Applies
-        Vector3 velocity = direction.normalized * moveSpeed;
-        velocity.y = verticalSpeed;
-
-        controller.Move(velocity * Time.deltaTime);
-
-        if (direction != Vector3.zero)
+        if (controller.isGrounded && velocity.y <= 0f)
         {
-            transform.rotation = Quaternion.LookRotation(direction);
-        }
-    }
-
-    void JumpGravity(Keyboard keyboard)
-    {
-        // applies jump when on ground
-        if (controller.isGrounded && verticalSpeed <= 0f)
-        {
-            verticalSpeed = -2f;
-
-            if (keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
-            {
-                verticalSpeed = 8f;
-            }
+            velocity.y = -2f;
+            lastWallCollider = null;
         }
 
-        // increases falling early when falling speed reaches 6f
-        if (verticalSpeed > 6f)
+        if (inputLockTimer > 0f)
         {
-            // Pablo is rising, keep gravity normal.
-            verticalSpeed -= 16f * Time.deltaTime;
+            inputLockTimer -= Time.deltaTime;
         }
         else
         {
-            // Pablo is falling, increase gravity.
-            verticalSpeed -= 30f * Time.deltaTime;
+            Vector3 moveDirection = GetCameraRelativeDirection(keyboard);
+            velocity.x = moveDirection.x * moveSpeed;
+            velocity.z = moveDirection.z * moveSpeed;
+
+            if (moveDirection != Vector3.zero)
+            {
+                transform.rotation = Quaternion.LookRotation(moveDirection);
+            }
+        }
+
+        if (jumpPressed)
+        {
+            if (controller.isGrounded)
+            {
+                velocity.y = jumpSpeed;
+            }
+            else if (isTouchingWall && currentWallCollider != lastWallCollider)
+            {
+                velocity = (wallNormal * wallJumpAwayForce) + (Vector3.up * wallJumpUpForce);
+                lastWallCollider = currentWallCollider;
+                inputLockTimer = wallInputLockTime;
+                isTouchingWall = false;
+
+                Vector3 lookDir = new Vector3(wallNormal.x, 0f, wallNormal.z);
+                if (lookDir != Vector3.zero)
+                {
+                    transform.rotation = Quaternion.LookRotation(lookDir);
+                }
+            }
+        }
+
+        ApplyGravityOrWallSlide();
+
+        isTouchingWall = false;
+        currentWallCollider = null;
+
+        controller.Move(velocity * Time.deltaTime);
+    }
+
+    private Vector3 GetCameraRelativeDirection(Keyboard keyboard)
+    {
+        if (keyboard == null)
+        {
+            return Vector3.zero;
+        }
+
+        float cameraY = Camera.main != null ? Camera.main.transform.eulerAngles.y : 0f;
+        Quaternion cameraTurn = Quaternion.Euler(0f, cameraY, 0f);
+        Vector3 direction = Vector3.zero;
+
+        if (keyboard.wKey.isPressed) direction += cameraTurn * Vector3.forward;
+        if (keyboard.sKey.isPressed) direction += cameraTurn * Vector3.back;
+        if (keyboard.aKey.isPressed) direction += cameraTurn * Vector3.left;
+        if (keyboard.dKey.isPressed) direction += cameraTurn * Vector3.right;
+
+        return direction.normalized;
+    }
+
+    private void ApplyGravityOrWallSlide()
+    {
+        if (isTouchingWall && !controller.isGrounded && velocity.y < wallSlideSpeed)
+        {
+            velocity.y = wallSlideSpeed;
+            return;
+        }
+
+        float gravityRate = velocity.y > 6f ? risingGravity : fallingGravity;
+        velocity.y -= gravityRate * Time.deltaTime;
+    }
+
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (((1 << hit.gameObject.layer) & wallLayer) != 0 && Mathf.Abs(hit.normal.y) < 0.1f)
+        {
+            if (!controller.isGrounded)
+            {
+                isTouchingWall = true;
+                wallNormal = hit.normal;
+                currentWallCollider = hit.collider;
+            }
         }
     }
 }
