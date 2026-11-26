@@ -8,22 +8,25 @@ public class PabloMovement : MonoBehaviour
     [SerializeField] private float moveSpeed = 8f;
     [SerializeField] private float jumpSpeed = 8f;
     [SerializeField] private float risingGravity = 16f;
-    [SerializeField] private float fallingGravity = 30f;
+    [SerializeField] private float fallingGravity = 22f;
 
     [Header("Wall Jump")]
     [SerializeField] private LayerMask wallLayer;
-    [SerializeField] private float wallSlideSpeed = -2.5f;
-    [SerializeField] private float wallJumpUpForce = 8f;
-    [SerializeField] private float wallJumpAwayForce = 10f;
-    [SerializeField] private float wallInputLockTime = 0.2f;
+    [SerializeField] private float wallSlideSpeed = -1.5f;
+    [SerializeField] private float wallJumpUpForce = 12.5f;
+    [SerializeField] private float wallJumpAwayForce = 8.5f;
+    [SerializeField] private float wallInputLockTime = 0.18f;
+    [SerializeField] private float wallContactWindow = 0.14f;
 
     private CharacterController controller;
     private Vector3 velocity;
     private Vector3 wallNormal;
     private Collider lastWallCollider;
     private Collider currentWallCollider;
-    private bool isTouchingWall;
+    private float wallContactTimer;
     private float inputLockTimer;
+
+    private bool HasWallContact => !controller.isGrounded && wallContactTimer > 0f;
 
     void Start()
     {
@@ -35,10 +38,21 @@ public class PabloMovement : MonoBehaviour
         Keyboard keyboard = Keyboard.current;
         bool jumpPressed = keyboard != null && keyboard.spaceKey.wasPressedThisFrame;
 
+        if (wallContactTimer > 0f)
+        {
+            wallContactTimer -= Time.deltaTime;
+            if (wallContactTimer <= 0f)
+            {
+                currentWallCollider = null;
+            }
+        }
+
         if (controller.isGrounded && velocity.y <= 0f)
         {
             velocity.y = -2f;
             lastWallCollider = null;
+            currentWallCollider = null;
+            wallContactTimer = 0f;
         }
 
         if (inputLockTimer > 0f)
@@ -63,12 +77,13 @@ public class PabloMovement : MonoBehaviour
             {
                 velocity.y = jumpSpeed;
             }
-            else if (isTouchingWall && currentWallCollider != lastWallCollider)
+            else if (HasWallContact && currentWallCollider != null && currentWallCollider != lastWallCollider)
             {
                 velocity = (wallNormal * wallJumpAwayForce) + (Vector3.up * wallJumpUpForce);
                 lastWallCollider = currentWallCollider;
+                currentWallCollider = null;
+                wallContactTimer = 0f;
                 inputLockTimer = wallInputLockTime;
-                isTouchingWall = false;
 
                 Vector3 lookDir = new Vector3(wallNormal.x, 0f, wallNormal.z);
                 if (lookDir != Vector3.zero)
@@ -79,9 +94,6 @@ public class PabloMovement : MonoBehaviour
         }
 
         ApplyGravityOrWallSlide();
-
-        isTouchingWall = false;
-        currentWallCollider = null;
 
         controller.Move(velocity * Time.deltaTime);
     }
@@ -107,7 +119,7 @@ public class PabloMovement : MonoBehaviour
 
     private void ApplyGravityOrWallSlide()
     {
-        if (isTouchingWall && !controller.isGrounded && velocity.y < wallSlideSpeed)
+        if (HasWallContact && velocity.y < wallSlideSpeed)
         {
             velocity.y = wallSlideSpeed;
             return;
@@ -119,14 +131,12 @@ public class PabloMovement : MonoBehaviour
 
     private void OnControllerColliderHit(ControllerColliderHit hit)
     {
-        if (((1 << hit.gameObject.layer) & wallLayer) != 0 && Mathf.Abs(hit.normal.y) < 0.1f)
+        bool matchesLayer = ((1 << hit.gameObject.layer) & wallLayer) != 0;
+        if (matchesLayer && !controller.isGrounded && Mathf.Abs(hit.normal.y) < 0.25f)
         {
-            if (!controller.isGrounded)
-            {
-                isTouchingWall = true;
-                wallNormal = hit.normal;
-                currentWallCollider = hit.collider;
-            }
+            wallNormal = hit.normal;
+            currentWallCollider = hit.collider;
+            wallContactTimer = wallContactWindow;
         }
     }
 }
