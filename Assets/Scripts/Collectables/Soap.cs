@@ -14,6 +14,7 @@ public class Soap : MonoBehaviour
             // if (hp > maxHP){
             //hp = maxHP;
             }*/
+            AudioManager.Instance.Play(AudioManager.SoundType.Soap);
             Destroy(other.gameObject);
         }
     }

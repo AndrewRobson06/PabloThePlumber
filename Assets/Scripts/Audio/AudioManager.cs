@@ -6,7 +6,10 @@ public class AudioManager : MonoBehaviour
     public enum SoundType
     {
         //add your sounds here
-        Glove
+        Glove,
+        Soap,
+        Plunger,
+        Duck
     }
 
     [System.Serializable]
