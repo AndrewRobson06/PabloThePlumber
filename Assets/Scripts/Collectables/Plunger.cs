@@ -1,12 +1,16 @@
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Plunger : MonoBehaviour
 {
     public bool hasPlunger = false;
 
-    public TextMeshProUGUI gloveText;
+    public Image plunger;
+    public Sprite collected;
+
+    public Sprite notCollected;
 
     private void OnTriggerEnter(Collider other)
     {
@@ -15,10 +19,35 @@ public class Plunger : MonoBehaviour
         {
             hasPlunger = true;
             AudioManager.Instance.Play(AudioManager.SoundType.Plunger);
-            //gloveText.text = "Gloves: " + gloves.ToString();
             Debug.Log(hasPlunger);
             Destroy(other.gameObject);
+
         }
     }
+
+    private void Start()
+    {
+        
+    }
+
+    private void Update()
+    {
+        if (hasPlunger == false)
+        {
+            plunger.sprite = notCollected;
+        }
+
+        else
+        {
+            plunger.sprite = collected;
+        }
+    }
+
+    public void ImageChange()
+    {
+
+    }
+
+
 
 }

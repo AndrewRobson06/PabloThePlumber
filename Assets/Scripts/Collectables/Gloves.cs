@@ -15,7 +15,7 @@ public class Gloves : MonoBehaviour
         {
             gloves++;
             AudioManager.Instance.Play(AudioManager.SoundType.Glove);
-            gloveText.text = "Gloves: " + gloves.ToString();
+            gloveText.text = gloves.ToString();
             Debug.Log(gloves);
             Destroy(other.gameObject);
         }
