@@ -14,6 +14,7 @@ public class Gloves : MonoBehaviour
         if (other.transform.tag == "Glove")
         {
             gloves++;
+            AudioManager.Instance.Play(AudioManager.SoundType.Glove);
             gloveText.text = "Gloves: " + gloves.ToString();
             Debug.Log(gloves);
             Destroy(other.gameObject);
